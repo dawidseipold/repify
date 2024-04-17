@@ -2,6 +2,8 @@
 	import { Select } from 'bits-ui';
 	import { afterUpdate } from 'svelte';
 	import { writable } from 'svelte/store';
+	import { browser } from '$app/environment';
+	import { loadFromLocalStorage, saveToLocalStorage } from '$lib/localStorage';
 
 	type Plate = {
 		weight: number;
@@ -14,7 +16,8 @@
 		weight: number;
 	};
 
-	let availablePlates = writable([
+	// Default values
+	let defaultPlates = [
 		{ weight: 25, count: 0 },
 		{ weight: 20, count: 0 },
 		{ weight: 15, count: 0 },
@@ -25,23 +28,40 @@
 		{ weight: 1, count: 0 },
 		{ weight: 0.5, count: 0 },
 		{ weight: 0.25, count: 0 }
-	] as Plate[]);
+	] as Plate[];
 
-	let BARBELLS = writable([
+	let defaultBarbells = [
 		{ value: 'standard', label: 'Standard', weight: 20 },
 		{ value: 'trap', label: 'Trap', weight: 25 }
-	] as Barbell[]);
+	] as Barbell[];
+
+	// Stores
+	let availablePlates = writable(
+		browser ? (loadFromLocalStorage('plates') as Plate[]) ?? defaultPlates : defaultPlates
+	);
+
+	availablePlates.subscribe((value) => {
+		if (browser) {
+			saveToLocalStorage('plates', value);
+		}
+	});
+
+	let BARBELLS = writable(
+		browser ? (loadFromLocalStorage('barbells') as Barbell[]) ?? defaultBarbells : defaultBarbells
+	);
+
+	BARBELLS.subscribe((value) => {
+		if (browser) {
+			saveToLocalStorage('barbells', value);
+		}
+	});
 
 	let selectedBarbell = writable($BARBELLS[0]);
 	let weight = writable(NaN as number);
 	let platesToLoad = writable([] as Plate[]);
 
 	let newBarbell = writable({ name: '', weight: NaN });
-	let newPlate = writable({ weight: NaN, count: 0 });
-
-	afterUpdate(() => {
-		console.log($platesToLoad);
-	});
+	let newPlate = writable({ weight: NaN, count: NaN });
 
 	function calculatePlates(weight: number, selectedBarbell: Barbell, availablePlates: Plate[]) {
 		if (availablePlates.every((plate) => plate.count === 0)) {
@@ -119,6 +139,7 @@
 	/>
 	<input
 		type="number"
+		step=".1"
 		placeholder="Barbell weight"
 		bind:value={$newBarbell.weight}
 		name="weight"
@@ -130,7 +151,7 @@
 
 <form
 	on:submit={() => {
-		if (isNaN($newPlate.weight) || $newPlate.count === 0) {
+		if (isNaN($newPlate.weight)) {
 			return;
 		}
 
@@ -143,12 +164,12 @@
 				...availablePlates,
 				{
 					weight: $newPlate.weight,
-					count: $newPlate.count
+					count: isNaN($newPlate.count) ? 0 : Number($newPlate.count)
 				}
 			];
 		});
 
-		newPlate.set({ weight: NaN, count: 0 });
+		newPlate.set({ weight: NaN, count: NaN });
 	}}
 >
 	<input type="number" step=".01" placeholder="Weight" bind:value={$newPlate.weight} />
