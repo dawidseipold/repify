@@ -36,6 +36,9 @@
 	let weight = writable(NaN as number);
 	let platesToLoad = writable([] as Plate[]);
 
+	let newBarbell = writable({ name: '', weight: NaN });
+	let newPlate = writable({ weight: NaN, count: 0 });
+
 	afterUpdate(() => {
 		console.log($platesToLoad);
 	});
@@ -86,6 +89,74 @@
 </script>
 
 <form
+	on:submit={(e) => {
+		e.preventDefault();
+
+		if ($newBarbell.name === '' || isNaN($newBarbell.weight)) {
+			return;
+		}
+
+		BARBELLS.update((barbells) => {
+			return [
+				...barbells,
+				{
+					value: $newBarbell.name.toLowerCase().replace(' ', '-'),
+					label: $newBarbell.name,
+					weight: $newBarbell.weight
+				}
+			];
+		});
+
+		newBarbell.set({ name: '', weight: NaN });
+	}}
+>
+	<input
+		type="text"
+		placeholder="Barbell name"
+		bind:value={$newBarbell.name}
+		name="name"
+		id="name"
+	/>
+	<input
+		type="number"
+		placeholder="Barbell weight"
+		bind:value={$newBarbell.weight}
+		name="weight"
+		id="weight"
+	/>
+
+	<button type="submit">Add Barbell</button>
+</form>
+
+<form
+	on:submit={() => {
+		if (isNaN($newPlate.weight) || $newPlate.count === 0) {
+			return;
+		}
+
+		if ($availablePlates.some((plate) => plate.weight === $newPlate.weight)) {
+			return;
+		}
+
+		availablePlates.update((availablePlates) => {
+			return [
+				...availablePlates,
+				{
+					weight: $newPlate.weight,
+					count: $newPlate.count
+				}
+			];
+		});
+
+		newPlate.set({ weight: NaN, count: 0 });
+	}}
+>
+	<input type="number" step=".01" placeholder="Weight" bind:value={$newPlate.weight} />
+	<input type="number" step="1" placeholder="Count" bind:value={$newPlate.count} />
+	<button type="submit">Add Plate</button>
+</form>
+
+<form
 	on:submit={() => {
 		platesToLoad.set(calculatePlates($weight, $selectedBarbell, $availablePlates));
 	}}
@@ -115,39 +186,41 @@
 	<button type="submit">Calculate</button>
 </form>
 
-<ul>
-	{#each $availablePlates as plate}
-		<li>
-			<input
-				type="number"
-				min="0"
-				step="1"
-				bind:value={plate.count}
-				on:change={(e) => {
-					availablePlates.update((availablePlates) => {
-						const index = availablePlates.findIndex((p) => p.weight === plate.weight);
+{#if $availablePlates.length > 0}
+	<ul>
+		{#each $availablePlates.sort((a, b) => b.weight - a.weight) as plate}
+			<li>
+				<input
+					type="number"
+					min="0"
+					step="1"
+					bind:value={plate.count}
+					on:change={(e) => {
+						availablePlates.update((availablePlates) => {
+							const index = availablePlates.findIndex((p) => p.weight === plate.weight);
 
-						if (e.currentTarget.value === '') {
-							e.currentTarget.value = String(0);
-						}
+							if (e.currentTarget.value === '') {
+								e.currentTarget.value = String(0);
+							}
 
-						if (e.currentTarget.value.startsWith('0')) {
-							e.currentTarget.value = e.currentTarget.value.replace(/^0+/, '');
-						}
+							if (e.currentTarget.value.startsWith('0')) {
+								e.currentTarget.value = e.currentTarget.value.replace(/^0+/, '');
+							}
 
-						availablePlates[index] = {
-							...plate,
-							count: Number(e.currentTarget.value)
-						};
+							availablePlates[index] = {
+								...plate,
+								count: Number(e.currentTarget.value)
+							};
 
-						return availablePlates;
-					});
-				}}
-			/>
-			<span>{plate.weight}kg</span>
-		</li>
-	{/each}
-</ul>
+							return availablePlates;
+						});
+					}}
+				/>
+				<span>{plate.weight}kg</span>
+			</li>
+		{/each}
+	</ul>
+{/if}
 
 {#if $platesToLoad.length > 0}
 	<p>{JSON.stringify($platesToLoad)}</p>
